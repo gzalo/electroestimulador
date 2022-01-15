@@ -7,64 +7,57 @@ unsigned char taskRun[NUMTASKS] = {0,0,0,0};
 void (*taskFcn[4])() = {taskBcycle, taskAcycle, taskReadKeypad, taskRefreshLcd};
 unsigned char taskEnabled[NUMTASKS] = {1,0,1,1};
 unsigned char taskOffset[NUMTASKS] = {0,1,0,1};
-unsigned char taskInterval[NUMTASKS] = {250,250,50,50};
+unsigned char taskInterval[NUMTASKS] = {250,20,50,50};
 
-unsigned char cycle = 0, frec = 4, mode = 1;
-unsigned char qseg = 0, pseg = 0, cseg = 0, cmin = 0;
+unsigned char paused = 1, cursor = 0, contractionTime = 4, relaxationTime = 4, bypass = 0;
+unsigned char quarterSeconds = 0, programQuarterSeconds = 0, timerSeconds = 0, timerMinutes = 0;
 
 void taskReadKeypad(){
 	handleKeys();
+
+	if(isDown(KEY_CURSOR)) cursor = (cursor+1)%2;
+	if(isDown(KEY_PAUSE)) paused = 1-paused;
+
+	if(isDownNow(KEY_BYPASS)){
+		bypass = 1;
+		taskEnabled[1] = 1;
+	} else if (bypass) {
+		bypass = 0;
+		taskEnabled[1] = 0;
+	}
 	
-	if(isDownNow(KEY_INCFREC) && frec < 150) frec++;		
-	if(isDownNow(KEY_DECFREC) && frec > 4) frec--;
-	
-	if(isDownNow(KEY_MODO0)) cycle = 0;
-	if(isDownNow(KEY_MODO1)) cycle = 2;
-	if((!isDownNow(KEY_MODO0)) && !(isDownNow(KEY_MODO1))) cycle = 1;
-	
-	if(isDown(KEY_TEST)) mode = (mode+1)%2;
-	
-	taskInterval[1] = 1000/frec;
+	if(cursor == 0){
+		if(isDownNow(KEY_INC) && contractionTime < 40) contractionTime++;
+		if(isDownNow(KEY_DEC) && contractionTime > 4) contractionTime--;
+	} else if(cursor == 1){
+		if(isDownNow(KEY_INC) && relaxationTime < 40) relaxationTime++;
+		if(isDownNow(KEY_DEC) && relaxationTime > 4) relaxationTime--;
+	}
 }
 
 void taskRefreshLcd(){
-	/*lcdGotoxy(0,0);
-	lcdPutuc(taskInterval[1]);
-	lcdPuts("ms");*/
-	
-	lcdGotoxy(14,0);
-	lcdWrite(mode);
-	
-	if(cycle==0)
-		lcdWrite('_');
-	else
-		lcdWrite(cycle+1);
-	
 	lcdGotoxy(0,0);
-	lcdPutuc(frec);
-	lcdPuts("Hz ");
-	
-	if(frec<10){
-		lcdPuts("Relax  ");
-	}else if(frec<20){
-		lcdPuts("Aerob. ");
-	}else if(frec<50){
-		lcdPuts("Tono   ");
-	}else if(frec<70){
-		lcdPuts("Volum. ");
-	}else if(frec<120){
-		lcdPuts("Maxima ");
-	}else if(frec<150){
-		lcdPuts("Explos.");
-	}
+	lcdPuts("C:");
+	lcdPutuc(contractionTime);
+	lcdPuts("/R:");
+	lcdPutuc(relaxationTime);
+
+	lcdGotoxy(15,0);
+	lcdWrite(3);
 	
 	lcdGotoxy(0,1);
-	lcdPutuc(cmin);
+	lcdWrite(quarterSeconds+4);
+	lcdWrite(' ');
+	lcdPutuc2(timerMinutes);
 	lcdWrite(':');
-	lcdPutuc2(cseg);
-	
-	lcdGotoxy(15,1);
-	lcdWrite(qseg+4);
+	lcdPutuc2(timerSeconds);
+
+	lcdGotoxy(12,1);
+	if(bypass){
+		lcdPuts("Mica");
+	} else {
+		lcdPuts("    ");
+	}
 }
 
 #define NOP_2 nop \
@@ -76,76 +69,86 @@ void taskRefreshLcd(){
 #define NOP_16 NOP_8 \
 			 NOP_8
 void taskAcycle(){	
-	
-	P3_2 = 0;
-	
-	__asm
-		NOP_16
-		NOP_16
-		NOP_16
-		NOP_16
-		NOP_16
-		NOP_16
-	__endasm;
-	
-	P3_2 = 1;
-	
-	/*__asm
-		NOP_16
-		NOP_16
-		NOP_16
-		NOP_16
-		NOP_16
-		NOP_16
-	__endasm;*/
-	if(mode==1){
-	P3_3 = 0;
-	
-	__asm
-		NOP_16
-		NOP_16
-		NOP_16
-		NOP_16
-		NOP_16
-		NOP_16
-	__endasm;
-	
-	P3_3 = 1;	
+	unsigned char i;
+	for(i=0;i<36;i++){
+		P3_2 = 0; // 112
+		__asm
+			NOP_16
+			NOP_16
+			NOP_16
+			NOP_16
+			NOP_16
+			NOP_16
+			NOP_16
+			NOP_16
+			NOP_16
+			NOP_16
+			NOP_16
+			NOP_16
+			NOP_16
+			NOP_16
+		__endasm;
+		
+		P3_2 = 1; // 15
+		__asm
+			NOP_16
+			NOP_16
+		__endasm;
+
+		P3_3 = 0; // 135
+		__asm
+			NOP_16
+			NOP_16
+			NOP_16
+			NOP_16
+			NOP_16
+			NOP_16
+			NOP_16
+			NOP_16
+			NOP_16
+			NOP_16
+			NOP_16
+			NOP_16
+			NOP_16
+			NOP_16
+			NOP_16
+			NOP_16
+			NOP_16
+		__endasm;
+		P3_3 = 1; // 19
+		__asm
+			NOP_16
+			NOP_16
+			NOP_4
+			NOP_4
+		__endasm;
 	}
-	
-	/*P3_0 = 0;
-	P3_1 = 1;
-	#define PATA P3_2
-	#include "seno.h"
-	
-	P3_0 = 1;
-	P3_1 = 0;
-	#define PATA P3_2
-	#include "seno.h"*/
 }
 
 void taskBcycle(){
-	qseg++;
-	if(qseg == 4){
-		qseg = 0;
+	if(paused){
+		taskEnabled[1] = 0;
+		return;
+	}
+	quarterSeconds++;
+	if(quarterSeconds == 4){
+		quarterSeconds = 0;
 		
-		cseg++;
+		timerSeconds++;
 		
-		if(cseg == 60){
-			cseg = 0;
-			cmin++;
+		if(timerSeconds == 60){
+			timerSeconds = 0;
+			timerMinutes++;
 		}		
 	}
 	
-	pseg++;
-	if(pseg <= 4){
+	programQuarterSeconds++;
+	if(programQuarterSeconds <= contractionTime){
 		taskEnabled[1] = 1;
-	}else{
+	} else {
 		taskEnabled[1] = 0;
 	}
-	if(cycle == 0 && pseg > 8+3) pseg = 0;
-	if(cycle == 1 && pseg > 6+3) pseg = 0;
-	if(cycle == 2 && pseg > 4+3) pseg = 0;
+	if(programQuarterSeconds > contractionTime + relaxationTime) programQuarterSeconds = 0;
 }
 
 #include "rtos.h"

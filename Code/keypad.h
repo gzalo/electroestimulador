@@ -1,8 +1,8 @@
-#define KEY_INCFREC 	1
-#define KEY_DECFREC 	2
-#define KEY_TEST	 	4
-#define KEY_MODO0		8
-#define KEY_MODO1		16
+#define KEY_INC 		1
+#define KEY_DEC  	 	2
+#define KEY_CURSOR	 	4
+#define KEY_PAUSE		8
+#define KEY_BYPASS		16
 
 #define KEY_PORT 		P1
 
